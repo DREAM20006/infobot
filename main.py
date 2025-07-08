@@ -56,5 +56,9 @@ def main():
         check_ronin_wallets(send_telegram_message)
         time.sleep(60)
 
+from keep_alive import keep_alive
+
 if __name__ == "__main__":
+    keep_alive()
     main()
+
