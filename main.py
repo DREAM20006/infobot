@@ -1,93 +1,60 @@
 import requests
 import time
 from keep_alive import keep_alive
+import os
 
-# === KEEP ALIVE SERVER ===
-keep_alive()
-print("Bot is running 24/7...")
+# ✅ Telegram bot config
+TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN")
+CHAT_ID = os.environ.get("CHAT_ID")
+CRYPTOPANIC_TOKEN = os.environ.get("CRYPTOPANIC_TOKEN")
 
-# === CONFIGURATION ===
-TELEGRAM_TOKEN = "8023747614:AAGerV6fBYMTiIu2jPMI4xL6W450mm2DxgU"  # 🔁 Replace with your Telegram Bot Token
-CHAT_ID = "1290853860"
-CRYPTOPANIC_TOKEN = "a3248d4b49886a49eddaeb898174a3aa210e7305"
+# ✅ Memory to avoid duplicate news
+sent_titles = set()
 
-# === PRICE ALERTS SETUP ===
-WATCHLIST = {"bitcoin": 2, "ethereum": 2, "ronin": 3, "pepe": 5, "dogecoin": 3}
-
-# === STATE TRACKING ===
-last_alerted = {}
-last_news_id = None
-
-
-# === SEND MESSAGE ===
-def send_message(text):
+# ✅ Send message to Telegram
+def send_telegram_message(text):
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
-    payload = {"chat_id": CHAT_ID, "text": text, "parse_mode": "HTML"}
-    try:
-        requests.post(url, data=payload)
-    except Exception as e:
-        print(f"❌ Failed to send message: {e}")
-
-
-# === CHECK PRICE MOVES ===
-def check_prices():
-    url = "https://api.coingecko.com/api/v3/simple/price"
-    ids = ",".join(WATCHLIST.keys())
-    params = {
-        "ids": ids,
-        "vs_currencies": "usd",
-        "include_24hr_change": "true"
+    payload = {
+        "chat_id": CHAT_ID,
+        "text": text,
+        "parse_mode": "HTML"
     }
+    requests.post(url, data=payload)
 
+# ✅ Fetch & send unique alpha news
+def fetch_alpha_news():
+    url = f'https://cryptopanic.com/api/v1/posts/?auth_token={CRYPTOPANIC_TOKEN}&public=true'
     try:
-        res = requests.get(url, params=params).json()
-        for coin, data in res.items():
-            change = data.get("usd_24h_change", 0)
-            price = data.get("usd", 0)
-            threshold = WATCHLIST[coin]
-            rounded_change = round(change, 1)
-            last = last_alerted.get(coin)
-
-            if abs(change) > threshold and last != rounded_change:
-                arrow = "📈" if change > 0 else "📉"
-                msg = f"{arrow} <b>{coin.upper()}</b>\nPrice: ${price:.4f}\n24h Change: {change:.2f}%"
-                send_message(msg)
-                last_alerted[coin] = rounded_change
-
-    except Exception as e:
-        print(f"❌ Price check failed: {e}")
-
-
-# === GET ALPHA NEWS ===
-def get_alpha_news():
-    global last_news_id
-    try:
-        url = "https://cryptopanic.com/api/developer/v2/posts/"
-        params = {
-            "auth_token": CRYPTOPANIC_TOKEN,
-            "filter": "important",
-            "public": "true"
-        }
-        response = requests.get(url, params=params)
-        posts = response.json().get("results", [])
-
-        for post in posts:
-            post_id = post.get("id")
+        res = requests.get(url).json()
+        for post in res.get("results", []):
             title = post.get("title")
-            link = post.get("url")
-
-            if post_id != last_news_id:
-                send_message(f"🧠 <b>{title}</b>\n🔗 {link}")
-                last_news_id = post_id
-                break  # send only one new item per cycle
-
+            link = post.get("url") or "None"
+            if title and title not in sent_titles:
+                sent_titles.add(title)
+                send_telegram_message(f"🧠 <b>{title}</b>\n🔗 {link}")
+        if len(sent_titles) > 100:
+            sent_titles.clear()
     except Exception as e:
-        print(f"❌ Alpha news fetch failed: {e}")
+        print("Alpha News Error:", e)
 
+# ✅ Dummy price pump checker (custom logic can be added)
+def check_price_alerts():
+    try:
+        # Example check for ETH
+        res = requests.get("https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd").json()
+        eth_price = res["ethereum"]["usd"]
+        print(f"ETH Price: ${eth_price}")
+        if eth_price > 4000:  # Change this threshold as needed
+            send_telegram_message(f"🚀 Ethereum is pumping!\nPrice: ${eth_price}")
+    except Exception as e:
+        print("Price Alert Error:", e)
 
-# === MAIN LOOP ===
+# ✅ Start keep_alive Flask server
+keep_alive()
+
+# ✅ Main loop
 while True:
     print("⏳ Checking market + alpha...")
-    check_prices()
-    get_alpha_news()
-    time.sleep(600)  # Check every 10 minutes
+    fetch_alpha_news()
+    check_price_alerts()
+    time.sleep(180)  # check every 3 minutes
