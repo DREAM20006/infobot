@@ -58,3 +58,23 @@ while True:
     fetch_alpha_news()
     check_price_alerts()
     time.sleep(180)  # check every 3 minutes
+
+elif text.startswith("/addwallet"):
+    try:
+        parts = text.split(" ", 2)
+        address = parts[1]
+        label = parts[2] if len(parts) > 2 else "Unnamed"
+
+        with open("wallets.json", "r") as f:
+            wallets = json.load(f)
+
+        if address in wallets:
+            send_telegram_message("⚠️ This wallet is already being tracked.")
+        else:
+            wallets[address] = label
+            with open("wallets.json", "w") as f:
+                json.dump(wallets, f, indent=2)
+            send_telegram_message(f"✅ Added wallet:\n{address}\n📛 Label: {label}")
+    except:
+        send_telegram_message("❌ Usage: /addwallet ronin:addr Label")
+
