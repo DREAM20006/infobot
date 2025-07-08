@@ -4,6 +4,7 @@ from keep_alive import keep_alive
 
 # === KEEP ALIVE SERVER ===
 keep_alive()
+print("Bot is running 24/7...")
 
 # === CONFIGURATION ===
 TELEGRAM_TOKEN = "8023747614:AAGerV6fBYMTiIu2jPMI4xL6W450mm2DxgU"  # 🔁 Replace with your Telegram Bot Token
